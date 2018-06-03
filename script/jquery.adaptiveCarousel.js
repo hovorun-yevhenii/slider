@@ -5,10 +5,10 @@ function Slider(opts) {
 
 Object.assign(Slider.prototype, {
     //Options
-	sliderSelector: ".slider",
-	loop: true,
-	animationDuration: 500,
-	arrows: true,
+    sliderSelector: ".slider",
+    loop: true,
+    animationDuration: 500,
+    arrows: true,
     preview: false,
     pagination: true,
     caption: false,
@@ -126,7 +126,7 @@ Object.assign(Slider.prototype, {
         $(window).resize(this.setupSize.bind(this))
                  .keydown(this.handleKeyDown.bind(this));
 
-        this.swipeZone.on("pan", this.nandlePan.bind(this))
+        this.swipeZone.on("pan", this.handlePan.bind(this))
             .get("pan").set({ direction: Hammer[`DIRECTION_${this.direction.toUpperCase()}`] });
 
         if (this.arrows) {
@@ -143,7 +143,7 @@ Object.assign(Slider.prototype, {
         }
     },
 
-    nandlePan(pan) {
+    handlePan(pan) {
         const axis = this.direction === "horizontal" ? "deltaX" : "deltaY",
               delta = pan[axis] * -1,
               whereWeStart = this.index * this.baseSize,
