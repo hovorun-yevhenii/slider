@@ -37,7 +37,6 @@ html {
 .slider__wrapper {
   width: 100%;
   height: 100%;
-  box-shadow: 0vmin 0vmin 2vmin rgba(0, 0, 0, 0.5);
   overflow: hidden;
 }
 
@@ -49,6 +48,7 @@ html {
   position: relative;
   margin: 0;
   padding: 0;
+  transform-origin: top center;
 }
 
 .slider__img {
