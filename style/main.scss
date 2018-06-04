@@ -34,8 +34,8 @@ html {
 .slider__wrapper {
     width: 100%;
     height: 100%;
-    // box-shadow: 0vmin 0vmin 2vmin rgba(0,0,0,.5);
     overflow: hidden;
+    //  overflow: visible;
 }
 
 .slider__viewport {
@@ -51,8 +51,6 @@ html {
 
 .slider__img {
     width: 100%;
-    margin: 0;
-    padding: 0;
 }
 
 /*==== ARROWS ====*/
@@ -137,29 +135,35 @@ div.arrow-next {
     background-color: transparent;
     border: 2px solid #999;
     cursor: pointer;
-    transition: border .2s;
+    transition: .2s;
+    -webkit-filter: saturate(.2);
+    opacity: .9;
     &:hover {
+        -webkit-filter: saturate(.75);
+        filter: saturate(.75);
         border: 2px solid #555;
     }
 }
 
 .preview-img_active {
-    border: 2px solid #555;  
+    -webkit-filter: saturate(.75);
+    filter: saturate(.75);
+    border: 2px solid #555;
 }
 
 /* ===== CAPTIION ===== */
 
 
-p {
+.slider__caption {
     position: absolute;
-    left: 5px;
+    left: 15px;
     top: 0;
-}
-
-p::before {
-    content: var(--content);
-    background-color: rgba(50,50,50,.2);
+    background-color: rgba(50,50,50,.5);
     padding: 12px;
-    font-family: fantasy, sans-serif;
+    font-family: sans-serif;
+    text-shadow: -1px -1px 0 #aaa,
+                1px -1px 0 #aaa,
+                -1px 1px 0 #aaa,
+                1px 1px 0 #aaa;
     color: #222;
 }
