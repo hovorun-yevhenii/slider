@@ -14,7 +14,6 @@ Object.assign(Slider.prototype, {
     autoPlay: false,
     autoPlayInterval: 500,
     direction: 'horizontal',
-    onSlideChanged: null,
     animationType: 'default',
 
     //Properties
@@ -24,8 +23,7 @@ Object.assign(Slider.prototype, {
 
     cssProps: {
         size: 'width',
-        flexDir: 'row',
-        axis: 'X'
+        axis: 'X',
     },
 
     LEFT_ARROW_CODE: 37,
@@ -35,17 +33,16 @@ Object.assign(Slider.prototype, {
     
 	init() {
         this.$el = $(this.sliderSelector);
+        this.$el.addClass(`${this.direction}`);
         this.$viewport = this.$el.find('.slider__viewport');
         this.slides = this.$viewport.children();
         
         this.viewportSwipe = new Hammer(this.$viewport[0]);
         this.viewportTransition = `transform ${this.animationDuration / 1000}s`;
 
-        //TODO Переписать под Jquery
         if (this.direction === 'vertical') {
             this.cssProps.size = 'height';
-            this.flexDir = 'column';
-            this.cssProps.axis = 'Y'       
+            this.cssProps.axis = 'Y';
         }
    
         this.setupSize();
@@ -61,6 +58,7 @@ Object.assign(Slider.prototype, {
         
         if (this.preview) {
             this.renderPreview();
+            this.$el.addClass('previewable');
         } else if (this.pagination) {
             this.renderPagination();
         }
@@ -73,8 +71,10 @@ Object.assign(Slider.prototype, {
         $(window).resize(this.setupSize.bind(this))
                  .keydown(this.keyDownHandler.bind(this));
 
-        this.viewportSwipe.on('pan', this.viewportPanHandler.bind(this))
-            .get('pan').set({ direction: Hammer[`DIRECTION_${this.direction.toUpperCase()}`] });
+        this.viewportSwipe
+            .on('pan', this.viewportPanHandler.bind(this))
+            .get('pan')
+            .set({ direction: Hammer[`DIRECTION_${this.direction.toUpperCase()}`] });
 
         if (this.arrows) {
             this.$el.find(`.arrow-prev`).click(this.movePrev.bind(this));
@@ -127,24 +127,28 @@ Object.assign(Slider.prototype, {
     },
 
     setupSize() {
-        this.baseSize = this.$el[this.cssProps.size]();
+        this.baseSize = this.$el.find('.slider__wrapper')[this.cssProps.size]();
 
         this.$viewport
             .css(this.cssProps.size, `${this.baseSize * this.slides.length}px`)
-            .css('flex-direction', this.cssProps.flexDir)
             .css('transition', this.viewportTransition)
             .css('transform', `translate${this.cssProps.axis}(-${this.index * this.baseSize}px)`);
+
+        this.$viewport.children()
+            .css(this.cssProps.size, `${this.baseSize}px`);
     },
 
     renderArrows() {
-        $('<div/>', { class: 'arrow-prev' }).appendTo(this.$el);
-        $('<div/>', { class: 'arrow-next' }).appendTo(this.$el);
+        $('<div/>', { class: `arrow-prev` })
+            .appendTo(this.$el.find('.slider__wrapper'));
+        $('<div/>', { class: `arrow-next` })
+            .appendTo(this.$el.find('.slider__wrapper'));
     },
 
     renderPagination() {
         const paginationPanel = $('<div/>', { 
-                class: 'pagination-panel' 
-            }).appendTo(this.$el);
+                class: `pagination-panel`
+            }).appendTo(this.$el.find('.slider__wrapper'));
 
         _.each(this.slides, (slide, counter) => {
             $('<div/>', { 
@@ -157,26 +161,45 @@ Object.assign(Slider.prototype, {
     viewportPanHandler(pan) {
         if (this.isMoving) return;
 
-        const delta = pan[`delta${this.cssProps.axis}`] * -1,
-              startPoint = this.index * this.baseSize,
-              shouldChange = pan.distance > this.baseSize / 5;
+        const axis = this.direction === 'horizontal' ? 4 : 5,
+              translateVal = this.$viewport.css('transform').split(',')[axis],
+              currentPoint = Math.abs(parseInt(translateVal)),
+
+              delta = pan[`delta${this.cssProps.axis}`] * -1,
+              startSlidePos = this.index * this.baseSize,   
+              shouldChange = pan.distance > this.baseSize / 5,
+              dif = Math.abs(currentPoint - startSlidePos);
+       
+        let endPoint = startSlidePos + delta;
+
+        // console.dirxml({
+        //     currentPoint,
+        //     delta,
+        //     distance: pan.distance,
+        //     dif,
+        // })
+
+        if (endPoint > this.baseSize * (this.slides.length - 1)) {
+            endPoint = startSlidePos;
+        }
 
         if (shouldChange) {
-            delta > 0 ? this.moveNext() : this.movePrev();
+            if (dif > 10) delta > 0 ? this.moveNext() : this.movePrev();
         } else if (pan.isFinal) {
             this.$viewport
                 .css('transition', this.viewportTransition)
-                .css('transform', `translate${this.cssProps.axis}(-${startPoint}px)`);
+                .css('transform', `translate${this.cssProps.axis}(-${startSlidePos}px)`);
         } else {
             this.$viewport
                 .css('transition', 'none')
-                .css('transform', `translate${this.cssProps.axis}(-${startPoint + delta}px)`);
+                .css('transform', `translate${this.cssProps.axis}(-${endPoint}px)`);
         }
     },
 
     previewPanHandler(pan) {
         const sign = Math.sign(pan[`delta${this.cssProps.axis}`]),
-              scrollPos = this.previewPanel[0].scrollLeft;
+              dir = this.direction == 'horizontal' ? 'scrollLeft' : 'scrollTop',
+              scrollPos = this.previewPanel[0][dir];
 
         this.previewPanel.scrollTo(scrollPos - 10 * sign);
     },
@@ -217,8 +240,8 @@ Object.assign(Slider.prototype, {
 
     renderPreview() {
         this.previewPanel = $('<div/>', { 
-            class: 'preview-panel' 
-        }).appendTo(this.$el);
+            class: `preview-panel`
+        }).appendTo(this.$el.find('.slider__wrapper'));
 
         const previewUnit = $('<div/>', {
             class: 'preview-viewbox' 
@@ -264,7 +287,11 @@ Object.assign(Slider.prototype, {
         this.updateControls(index);
         
         setTimeout(() => {
-            if (this.onSlideChanged) this.onSlideChanged();
+            this.$el.trigger({
+                type: "slideChanged",
+                emitter: this.$el,
+                time: new Date(),
+            });
             
             this.isMoving = false;
         },  this.animationDuration);
@@ -281,15 +308,17 @@ const slider = new Slider({
     autoPlay: false,
     autoPlayInterval: 500,
     animationType: 'default', // 'skewX'
-    direction: 'horizontal',
-    onSlideChanged: null
+    direction: 'horizontal', // 'horizontal' 'vertical'
 });
 
-function userFunc() {
+
+//$(document).on("slideChanged", slideChangedHandler);
+
+function slideChangedHandler(event) {
     console.log([
         `HI! I'm User's callback. It's`,
-        ` ${new Date().getHours()}`,
-        `:${new Date().getMinutes()}`,
-        `:${new Date().getSeconds()} o'clock`
+        ` ${event.time.getHours()}`,
+        `:${event.time.getMinutes()}`,
+        `:${event.time.getSeconds()} o'clock`
     ].join(''));
 }
