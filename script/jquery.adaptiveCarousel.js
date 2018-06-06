@@ -1,9 +1,9 @@
 function Slider(opts) {
-    Object.assign(this, opts);
+    $.extend(this, opts);
     this.init();
 }
 
-Object.assign(Slider.prototype, {
+$.extend(Slider.prototype, {
     //Options
     sliderSelector: '.slider',
     loop: true,
@@ -20,11 +20,8 @@ Object.assign(Slider.prototype, {
     index: 0,
     isMoving: false,
     autoPlayerCounter: null,
-
-    cssProps: {
-        size: 'width',
-        axis: 'X',
-    },
+    dimension: 'width',
+    axis: 'X',
 
     LEFT_ARROW_CODE: 37,
     UP_ARROW_CODE: 38,
@@ -35,14 +32,14 @@ Object.assign(Slider.prototype, {
         this.$el = $(this.sliderSelector);
         this.$el.addClass(`${this.direction}`);
         this.$viewport = this.$el.find('.slider__viewport');
-        this.slides = this.$viewport.children();
+        this.$slides = this.$viewport.children();
         
         this.viewportSwipe = new Hammer(this.$viewport[0]);
         this.viewportTransition = `transform ${this.animationDuration / 1000}s`;
 
         if (this.direction === 'vertical') {
-            this.cssProps.size = 'height';
-            this.cssProps.axis = 'Y';
+            this.dimension = 'height';
+            this.axis = 'Y';
         }
    
         this.setupSize();
@@ -68,8 +65,9 @@ Object.assign(Slider.prototype, {
     },
 
     addListeners() {
-        $(window).resize(this.setupSize.bind(this))
-                 .keydown(this.keyDownHandler.bind(this));
+        $(window)
+            .on('resize orientationchange', this.setupSize.bind(this))
+            .keydown(this.keyDownHandler.bind(this));
 
         this.viewportSwipe
             .on('pan', this.viewportPanHandler.bind(this))
@@ -92,30 +90,38 @@ Object.assign(Slider.prototype, {
                 .get('pan')
                 .set({ direction: Hammer[`DIRECTION_${this.direction.toUpperCase()}`] });
         }
+
+        this.$viewport.on('transitionend', () => {
+            this.$el.trigger({ 
+                type: "slideChanged", 
+                emitter: this.$el, 
+                time: new Date(),
+            })
+        });
     },
 
     updateControls(index) {
         if (!this.loop) {
             const hasPrev = index === 0,
-                  hasNext = index === this.slides.length - 1;
+                  hasNext = index === this.$slides.length - 1;
 
             this.$el.find(`.arrow-prev`).css('display', hasPrev ? 'none' : 'block');
             this.$el.find(`.arrow-next`).css('display', hasNext ? 'none' : 'block');
         }
 
         if (this.preview) {
-            const step = this.$el.find(`.preview-img`)[0][this.cssProps.size],
+            const step = this.$el.find(`.preview-img`)[0][this.dimension],
                   scrollPos = step * (index - 1.5);
 
-            this.previewPanel.scrollTo(scrollPos, this.animationDuration);
+            this.$previewPanel.scrollTo(scrollPos, this.animationDuration);
 
             this.$el.find(`.preview-img`).removeClass('preview-img_active');
-            this.$el.find(`[data-index=${index}]`).addClass('preview-img_active');
+            this.$el.find(`img[data-index=${index}]`).addClass('preview-img_active');
         }
         
         if (this.pagination) {
             this.$el.find(`.pagination-btn`).removeClass('pagination-btn_active');
-            this.$el.find(`[data-index=${index}]`).addClass('pagination-btn_active');
+            this.$el.find(`div[data-index=${index}]`).addClass('pagination-btn_active');
         }
     },
 
@@ -127,15 +133,14 @@ Object.assign(Slider.prototype, {
     },
 
     setupSize() {
-        this.baseSize = this.$el.find('.slider__wrapper')[this.cssProps.size]();
+        this.baseSize = this.$el.find('.slider__wrapper')[this.dimension]();
 
         this.$viewport
-            .css(this.cssProps.size, `${this.baseSize * this.slides.length}px`)
-            .css('transition', this.viewportTransition)
-            .css('transform', `translate${this.cssProps.axis}(-${this.index * this.baseSize}px)`);
+            .css(this.dimension, `${this.baseSize * this.$slides.length}px`)
+            .children()
+                .css(this.dimension, `${this.baseSize}px`);
 
-        this.$viewport.children()
-            .css(this.cssProps.size, `${this.baseSize}px`);
+        this.translateViewport(this.index * this.baseSize, false);        
     },
 
     renderArrows() {
@@ -150,7 +155,7 @@ Object.assign(Slider.prototype, {
                 class: `pagination-panel`
             }).appendTo(this.$el.find('.slider__wrapper'));
 
-        _.each(this.slides, (slide, counter) => {
+        _.each(this.$slides, (slide, counter) => {
             $('<div/>', { 
                 class: 'pagination-btn',
                 'data-index': counter
@@ -159,75 +164,68 @@ Object.assign(Slider.prototype, {
     },
 
     viewportPanHandler(pan) {
-        if (this.isMoving) return;
+        const delta = pan[`delta${this.axis}`],
+              startPoint = this.index * this.baseSize,
+              endPoint = startPoint - delta,
 
-        const axis = this.direction === 'horizontal' ? 4 : 5,
-              translateVal = this.$viewport.css('transform').split(',')[axis],
-              currentPoint = Math.abs(parseInt(translateVal)),
+              moveTo = delta < 0 ? 'moveNext' : 'movePrev',
+              shouldMove = Math.abs(delta) > this.baseSize / 5;
 
-              delta = pan[`delta${this.cssProps.axis}`] * -1,
-              startSlidePos = this.index * this.baseSize,   
-              shouldChange = pan.distance > this.baseSize / 5,
-              dif = Math.abs(currentPoint - startSlidePos);
-       
-        let endPoint = startSlidePos + delta;
+        this.translateViewport(endPoint, false);
 
-        // console.dirxml({
-        //     currentPoint,
-        //     delta,
-        //     distance: pan.distance,
-        //     dif,
-        // })
+        if (shouldMove) {
 
-        if (endPoint > this.baseSize * (this.slides.length - 1)) {
-            endPoint = startSlidePos;
-        }
+            if (this[moveTo]() === false) {
+                this.translateViewport(startPoint);
+            }
 
-        if (shouldChange) {
-            if (dif > 10) delta > 0 ? this.moveNext() : this.movePrev();
+            this.viewportSwipe.stop();
         } else if (pan.isFinal) {
-            this.$viewport
-                .css('transition', this.viewportTransition)
-                .css('transform', `translate${this.cssProps.axis}(-${startSlidePos}px)`);
-        } else {
-            this.$viewport
-                .css('transition', 'none')
-                .css('transform', `translate${this.cssProps.axis}(-${endPoint}px)`);
+            this.translateViewport(startPoint);
         }
+    },
+
+    translateViewport(pos, time = this.viewportTransition) {
+        this.$viewport
+            .css('transition', time)
+            .css('transform', `translate${this.axis}(${-pos}px)`);
     },
 
     previewPanHandler(pan) {
-        const sign = Math.sign(pan[`delta${this.cssProps.axis}`]),
-              dir = this.direction == 'horizontal' ? 'scrollLeft' : 'scrollTop',
-              scrollPos = this.previewPanel[0][dir];
+        const deltaSign = Math.sign(pan[`delta${this.axis}`]),
+              step = 10 * deltaSign,
+              direction = this.direction == 'horizontal' ? 'scrollLeft' : 'scrollTop',
+              startPoint = this.$previewPanel[0][direction];
 
-        this.previewPanel.scrollTo(scrollPos - 10 * sign);
+        this.$previewPanel.scrollTo(startPoint - step);
     },
 
     keyDownHandler(key) {
-        if (key.keyCode === this.LEFT_ARROW_CODE
-            || key.keyCode === this.UP_ARROW_CODE
-        ) {
-            this.movePrev();
-        } else if (key.keyCode === this.RIGHT_ARROW_CODE
-            || key.keyCode === this.DOWN_ARROW_CODE
-        ) {
-            this.moveNext();
-        }
+		if (
+			key.keyCode === this.LEFT_ARROW_CODE ||
+			key.keyCode === this.UP_ARROW_CODE
+		) {
+			this.movePrev();
+		} else if (
+			key.keyCode === this.RIGHT_ARROW_CODE ||
+			key.keyCode === this.DOWN_ARROW_CODE
+		) {
+			this.moveNext();
+		}
     },
 
     movePrev(e) {
-        if (!this.loop && !this.index) return;
+        if (!this.loop && !this.index) return false;
 
-        const index = this.index === 0 ? this.slides.length - 1 : this.index - 1;
+        const index = this.index === 0 ? this.$slides.length - 1 : this.index - 1;
 
         this.moveToSlide(index);
     },
 
     moveNext(e) {
-        if (!this.loop && this.index === this.slides.length - 1) return;
+        if (!this.loop && this.index === this.$slides.length - 1) return false;
 
-        const index = this.index === this.slides.length - 1 ? 0 : this.index + 1;
+        const index = this.index === this.$slides.length - 1 ? 0 : this.index + 1;
 
         this.moveToSlide(index);
     },
@@ -239,15 +237,15 @@ Object.assign(Slider.prototype, {
     },
 
     renderPreview() {
-        this.previewPanel = $('<div/>', { 
+        this.$previewPanel = $('<div/>', { 
             class: `preview-panel`
         }).appendTo(this.$el.find('.slider__wrapper'));
 
         const previewUnit = $('<div/>', {
             class: 'preview-viewbox' 
-        }).appendTo(this.previewPanel);
+        }).appendTo(this.$previewPanel);
 
-        _.each(this.slides, (slide, counter) => {
+        _.each(this.$slides, (slide, counter) => {
             $('<img/>', { 
                 class: 'preview-img',
                 src: $(slide).children('img')[0].src,
@@ -255,51 +253,84 @@ Object.assign(Slider.prototype, {
             }).appendTo(previewUnit);
         });
 
-        this.previewSwipe = new Hammer(this.previewPanel[0]);
+        this.previewSwipe = new Hammer(this.$previewPanel[0]);
     },
 
-    startAnimationHandler(type) {
-        this.$el.find(`.slider__slide`)
-            .css('transition', '.5s')
-            .css('transform', 'skewY(180deg)');
+    animateCustom(type) {
+        let fadeDuration = this.animationDuration / 2,
+            fadeOutProps = {},
+            fadeInProps = {};
 
-        setTimeout(() => {
-            this.$el.find(`.slider__slide`)
-                .css('transition', 'none')
-                .css('transform', 'skewY(0)');
-        },  this.animationDuration);
+        switch (type) {
+            case 'transparency':
+                fadeOutProps = {
+                    opacity: '0.2'
+                };
+                fadeInProps = {
+                    opacity: '1'
+                };
+                break;
+            case 'scaling':
+                fadeOutProps = {
+                    marginTop: '2.5%',
+                    marginLeft: '40%',
+                    height: '20%',
+                    width: '20%'
+                };
+                fadeInProps = {
+                    marginTop: '0',
+                    marginLeft: '0',
+                    height: '100%',
+                    width: '100%'
+                };
+                break;
+            default:
+                console.log('undefined animation type');
+                return false;
+        }
+
+        this.$slides.animate(
+            fadeOutProps,
+            fadeDuration,
+            function() {
+                $(this).animate(
+                    fadeInProps,
+                    fadeDuration
+                );
+            }
+        );
     },
 
     moveToSlide(index) {
         if (this.index === index) return;
 
         this.index = index;
-        this.isMoving = true;
 
         if (this.animationType !== 'default') {
-            this.startAnimationHandler(this.animationType);
+            this.animateCustom(this.animationType);
         }
 
-        this.$viewport
-            .css('transition', this.viewportTransition)
-            .css('transform', `translate${this.cssProps.axis}(-${index * this.baseSize}px)`);
+        this.translateViewport(index * this.baseSize)
 
         this.updateControls(index);
-        
-        setTimeout(() => {
-            this.$el.trigger({
-                type: "slideChanged",
-                emitter: this.$el,
-                time: new Date(),
-            });
-            
-            this.isMoving = false;
-        },  this.animationDuration);
     }
 });
 
 
-const slider = new Slider({
+//$(document).on("slideChanged", slideChangedHandler);
+
+function slideChangedHandler(event) {
+	console.log(
+		[
+			`HI! I'm User's callback. It's`,
+			` ${event.time.getHours()}`,
+			`:${event.time.getMinutes()}`,
+            `:${event.time.getSeconds()} o'clock`
+		].join("")
+	);
+}
+
+sliderOpts = {
     sliderSelector: '#slider',
     loop: false,
     arrows: true,
@@ -307,18 +338,43 @@ const slider = new Slider({
     preview: true,
     autoPlay: false,
     autoPlayInterval: 500,
-    animationType: 'default', // 'skewX'
+    animationType: 'scaling', // 'default' , 'transparency', 'scaling'
     direction: 'horizontal', // 'horizontal' 'vertical'
+};
+
+const dynamicOpts = JSON.parse(localStorage.getItem(`dynamicOpts`)) || {},
+      $controls = $('.controls');
+
+$.each(dynamicOpts, (key, val) => {
+    $controls.find(`.${key} :contains(${val})`).addClass('on');
 });
 
+$controls.find('p').click(ev => {
+    $(ev.currentTarget)
+        .children()
+        .toggleClass('on');
+});
 
-//$(document).on("slideChanged", slideChangedHandler);
+$('.hideControls').click(() => {
+    $controls.toggleClass('hidden');
+});
 
-function slideChangedHandler(event) {
-    console.log([
-        `HI! I'm User's callback. It's`,
-        ` ${event.time.getHours()}`,
-        `:${event.time.getMinutes()}`,
-        `:${event.time.getSeconds()} o'clock`
-    ].join(''));
-}
+$('.reload').click(() => {
+	localStorage.setItem(
+		"dynamicOpts",
+		JSON.stringify({
+			direction: $(".direction .on").text(),
+			loop: $(".loop .on").text() === "true" ? true : false,
+			arrows: $(".arrows .on").text() === "true" ? true : false,
+			pagination: $(".pagination .on").text() === "true" ? true : false,
+			preview: $(".preview .on").text() === "true" ? true : false
+		})
+	);
+
+	location.reload();
+});
+
+$.extend(sliderOpts, dynamicOpts);
+
+const slider = new Slider(sliderOpts);
+
