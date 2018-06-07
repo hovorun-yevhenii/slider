@@ -14,7 +14,7 @@ $.extend(Slider.prototype, {
     autoPlay: false,
     autoPlayInterval: 500,
     direction: 'horizontal',
-    animationType: 'default',
+    animation: 'default',
 
     //Properties
     index: 0,
@@ -181,8 +181,8 @@ $.extend(Slider.prototype, {
 
             this.viewportSwipe.stop();
         } else if (pan.isFinal) {
-            this.translateViewport(startPoint);
-        }
+            this.translateViewport(startPoint);  
+        } 
     },
 
     translateViewport(pos, time = this.viewportTransition) {
@@ -241,7 +241,7 @@ $.extend(Slider.prototype, {
             class: `preview-panel`
         }).appendTo(this.$el.find('.slider__wrapper'));
 
-        const previewUnit = $('<div/>', {
+        const previewViewbox = $('<div/>', {
             class: 'preview-viewbox' 
         }).appendTo(this.$previewPanel);
 
@@ -250,13 +250,13 @@ $.extend(Slider.prototype, {
                 class: 'preview-img',
                 src: $(slide).children('img')[0].src,
                 'data-index': counter
-            }).appendTo(previewUnit);
+            }).appendTo(previewViewbox);
         });
 
         this.previewSwipe = new Hammer(this.$previewPanel[0]);
     },
 
-    animateCustom(type) {
+    animateSlides(type) {
         let fadeDuration = this.animationDuration / 2,
             fadeOutProps = {},
             fadeInProps = {};
@@ -285,7 +285,7 @@ $.extend(Slider.prototype, {
                 };
                 break;
             default:
-                console.log('undefined animation type');
+                console.error('undefined animation type');
                 return false;
         }
 
@@ -306,8 +306,8 @@ $.extend(Slider.prototype, {
 
         this.index = index;
 
-        if (this.animationType !== 'default') {
-            this.animateCustom(this.animationType);
+        if (this.animation) {
+            this.animateSlides(this.animation);
         }
 
         this.translateViewport(index * this.baseSize)
@@ -329,18 +329,6 @@ function slideChangedHandler(event) {
 		].join("")
 	);
 }
-
-sliderOpts = {
-    sliderSelector: '#slider',
-    loop: false,
-    arrows: true,
-    pagination: true,
-    preview: true,
-    autoPlay: false,
-    autoPlayInterval: 500,
-    animationType: 'scaling', // 'default' , 'transparency', 'scaling'
-    direction: 'horizontal', // 'horizontal' 'vertical'
-};
 
 const dynamicOpts = JSON.parse(localStorage.getItem(`dynamicOpts`)) || {},
       $controls = $('.controls');
@@ -373,6 +361,18 @@ $('.reload').click(() => {
 
 	location.reload();
 });
+
+const sliderOpts = {
+    sliderSelector: '#slider',
+    loop: false,
+    arrows: true,
+    pagination: true,
+    preview: true,
+    autoPlay: false,
+    autoPlayInterval: 500,
+    animation: false, // 'transparency', 'scaling'
+    direction: 'horizontal', // 'horizontal' 'vertical'
+};
 
 $.extend(sliderOpts, dynamicOpts);
 

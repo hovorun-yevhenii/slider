@@ -1,13 +1,12 @@
 html {
     min-height: 100vh;
-    background: url("https://www.transparenttextures.com/patterns/dark-stripes-light.png");
 }
 
 .slider {
     position: relative;
     width: 80%;
     margin: 0 auto;
-    outline: 1px dashed #999;
+    outline: 1px dashed #ccc;
 
     & * {
         box-sizing: border-box;
@@ -84,9 +83,9 @@ html {
 
     // slide
         .slider__slide {
+            outline: 1px solid orange;
             position: relative;
             height: 100%;
-            transform-origin: top center;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -127,7 +126,7 @@ html {
     div[class^="arrow"] {
         position: absolute;
         top: 0;
-        left: 0;
+        left: 1vmin;
         width: 7vmin;
         height: 100%;
         background: url("../img/arrow-left.svg") no-repeat center;
@@ -147,12 +146,12 @@ html {
     div.arrow-next {
         background: url("../img/arrow-right.svg") no-repeat center;
         background-size: contain;
-        left: calc(100% - 7vmin);
+        left: calc(100% - 8vmin);
     }
 
     &.vertical div[class^="arrow"] {
-        top: 0;
-        bottom: calc(100% - 7vmin);
+        top: 1vmin;
+        bottom: calc(100% - 8vmin);
         left: 0;
         right: 0;
         width: 100%;
@@ -168,8 +167,8 @@ html {
     &.vertical div.arrow-next  {
         background: url("../img/arrow-down.svg") no-repeat center;
         background-size: contain;
-        top: calc(100% - 7vmin);
-        bottom: 0;
+        top: calc(100% - 8vmin);
+        bottom: 1vmin;
     }
 
 // pagination 
@@ -218,10 +217,12 @@ html {
     &__caption {
         position: absolute;
         left: 15px;
-        top: 0;
+        bottom: 0;
+        max-height: 48px;
         background-color: rgba(50,50,50,.5);
         padding: 12px;
         font-family: sans-serif;
+        font-size: 13px;
         text-shadow: -1px -1px 0 #aaa,
                     1px -1px 0 #aaa,
                     -1px 1px 0 #aaa,
@@ -276,15 +277,20 @@ html {
 
 .controls {
     position: absolute;
-    bottom: -25px;
+    bottom: -55px;
     left: 30px;
     margin: 12px;
     width: 300px;;
     padding: 3px;
     background-color: #fff;
-    transform: scale(.8);
+    opacity: .8;
+    transform: scale(.7);
     transform-origin: top left;
-    transition: transform .2s;
+    transition: transform .2s, opacity .2s;
+
+    &:hover {
+        opacity: 1;
+    }
 
     &.hidden {
         transform: scale(0);       
